@@ -5,23 +5,52 @@ import SEO from '../../components/SEO'
 import BookCard from '../../components/BookCard'
 import BookCover from '../../components/BookCover'
 import RatingStars from '../../components/RatingStars'
+import { BookCardSkeleton, SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { bookService } from '../../services/bookService'
 import { getBanners, getAuthors, getPublishers, getCategories, getReviews } from '../../lib/firestore'
-import { formatTaka } from '../../lib/format'
 export default function Home() {
   const { t, lang } = useLanguage()
   const [slide, setSlide] = useState(0)
-  const banners = getBanners().filter((b) => b.active)
-  const bestsellers = bookService.list({ bestseller: true }).slice(0, 8)
-  const newArrivals = bookService.list({ isNew: true, sort: 'newest' }).slice(0, 8)
-  const featured = bookService.list({ featured: true }).slice(0, 8)
-  const discounted = bookService.list({ discounted: true }).slice(0, 8)
-  const recommended = [...bookService.list({ sort: 'rating' })].slice(0, 4)
-  const authors = getAuthors().filter((a) => a.featured && a.books > 0).slice(0, 4)
-  const publishers = getPublishers().filter((p) => p.featured).slice(0, 4)
-  const categories = getCategories()
-  const reviews = getReviews().slice(0, 3)
+  const { data, loading, error } = useAsyncData(async () => {
+    const [banners, bestsellers, newArrivals, featured, discounted, recommended, authors, publishers, categories, reviews, all] = await Promise.all([
+      getBanners(),
+      bookService.list({ bestseller: true }),
+      bookService.list({ isNew: true, sort: 'newest' }),
+      bookService.list({ featured: true }),
+      bookService.list({ discounted: true }),
+      bookService.list({ sort: 'rating' }),
+      getAuthors(),
+      getPublishers(),
+      getCategories(),
+      getReviews(),
+      bookService.list({}),
+    ])
+    const byId = Object.fromEntries(all.map((b) => [b.id, b]))
+    return {
+      banners: banners.filter((b) => b.active),
+      bestsellers: bestsellers.slice(0, 8),
+      newArrivals: newArrivals.slice(0, 8),
+      featured: featured.slice(0, 8),
+      discounted: discounted.slice(0, 8),
+      recommended: recommended.slice(0, 4),
+      authors: authors.filter((a) => a.featured && a.books > 0).slice(0, 4),
+      publishers: publishers.filter((p) => p.featured).slice(0, 4),
+      categories,
+      reviews: reviews.slice(0, 3).map((r) => ({ ...r, book: byId[r.bookId] })),
+    }
+  }, [])
+  const banners = data?.banners || []
+  const bestsellers = data?.bestsellers || []
+  const newArrivals = data?.newArrivals || []
+  const featured = data?.featured || []
+  const discounted = data?.discounted || []
+  const recommended = data?.recommended || []
+  const authors = data?.authors || []
+  const publishers = data?.publishers || []
+  const categories = data?.categories || []
+  const reviews = data?.reviews || []
   useEffect(() => {
     if (!banners.length) return
     const id = setInterval(() => setSlide((s) => (s + 1) % banners.length), 5000)
@@ -31,7 +60,13 @@ export default function Home() {
   return (
     <div>
       <SEO title={lang === 'bn' ? 'হোম' : 'Home'} description="SP Books — বাংলাদেশের মাল্টি-ভেন্ডর অনলাইন বইয়ের দোকান।" />
-      {banner && (
+      {error && <div className="mx-auto max-w-7xl px-4 mt-4"><SectionError message={error} /></div>}
+      {loading && (
+        <div className="mx-auto max-w-7xl px-4 py-6" aria-busy="true">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[1, 2, 3, 4].map((i) => <BookCardSkeleton key={i} />)}</div>
+        </div>
+      )}
+      {!loading && banner && (
         <section className="relative bg-gradient-to-br from-primary via-[#7A4E33] to-[#3D2C1E] text-white overflow-hidden" aria-label="Featured offer">
           <div className="mx-auto max-w-7xl px-4 py-10 sm:py-14 flex flex-col sm:flex-row items-center gap-6">
             <div className="flex-1 fade-up">
@@ -141,16 +176,13 @@ export default function Home() {
       </Section>
       <Section title={t('customerReviews')} link="/reviews" linkLabel={t('reviews')}>
         <div className="grid md:grid-cols-3 gap-3">
-          {reviews.map((r) => {
-            const book = bookService.bySlug(r.bookId)
-            return (
-              <figure key={r.id} className="rounded-xl border border-[#E9DFCE] dark:border-white/10 bg-white dark:bg-[#2A2521] p-5">
-                <RatingStars rating={r.rating} />
-                <blockquote className="mt-2 text-sm leading-relaxed">“{r.comment}”</blockquote>
-                <figcaption className="mt-3 text-sm"><span className="font-semibold">{r.userName}</span> <span className="text-muted">· {book?.titleBn || ''}</span></figcaption>
-              </figure>
-            )
-          })}
+          {reviews.map((r) => (
+            <figure key={r.id} className="rounded-xl border border-[#E9DFCE] dark:border-white/10 bg-white dark:bg-[#2A2521] p-5">
+              <RatingStars rating={r.rating} />
+              <blockquote className="mt-2 text-sm leading-relaxed">“{r.comment}”</blockquote>
+              <figcaption className="mt-3 text-sm"><span className="font-semibold">{r.userName}</span> <span className="text-muted">· {r.book?.titleBn || ''}</span></figcaption>
+            </figure>
+          ))}
         </div>
       </Section>
     </div>

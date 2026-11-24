@@ -2,8 +2,9 @@ import { useSearchParams, Link } from 'react-router-dom'
 import { Search as SearchIcon } from 'lucide-react'
 import SEO from '../../components/SEO'
 import BookCard from '../../components/BookCard'
-import { EmptyState } from '../../components/States'
+import { EmptyState, BookCardSkeleton, SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { bookService } from '../../services/bookService'
 import { getAuthors, getPublishers } from '../../lib/firestore'
 import { useState } from 'react'
@@ -12,9 +13,19 @@ export default function Search() {
   const q = params.get('q') || ''
   const { t } = useLanguage()
   const [input, setInput] = useState(q)
-  const results = q ? bookService.search(q) : []
-  const authors = getAuthors().filter((a) => a.nameBn.includes(q) || a.name.toLowerCase().includes(q.toLowerCase()))
-  const publishers = getPublishers().filter((p) => p.nameBn.includes(q) || p.name.toLowerCase().includes(q.toLowerCase()))
+  const { data, loading, error } = useAsyncData(async () => {
+    if (!q) return { results: [], authors: [], publishers: [] }
+    const [results, allAuthors, allPublishers] = await Promise.all([bookService.search(q), getAuthors(), getPublishers()])
+    const ql = q.toLowerCase()
+    return {
+      results,
+      authors: allAuthors.filter((a) => (a.nameBn || '').includes(q) || (a.name || '').toLowerCase().includes(ql)),
+      publishers: allPublishers.filter((p) => (p.nameBn || '').includes(q) || (p.name || '').toLowerCase().includes(ql)),
+    }
+  }, [q])
+  const results = data?.results || []
+  const authors = data?.authors || []
+  const publishers = data?.publishers || []
   const submit = (e) => { e.preventDefault(); setParams(input.trim() ? { q: input.trim() } : {}) }
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
@@ -26,18 +37,24 @@ export default function Search() {
       </form>
       {q && (
         <>
-          <p className="text-sm text-muted mt-4">“{q}” — {results.length}টি বই পাওয়া গেছে</p>
-          {authors.length > 0 && (
-            <div className="mt-4"><h2 className="font-semibold mb-2">{t('authors')}</h2><div className="flex flex-wrap gap-2">{authors.map((a) => <Link key={a.id} to={`/authors/${a.slug}`} className="px-4 py-2 rounded-full border bg-white dark:bg-white/5 text-sm font-medium hover:border-primary">{a.nameBn}</Link>)}</div></div>
+          {loading && <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mt-6" aria-busy="true">{[1, 2, 3, 4].map((i) => <BookCardSkeleton key={i} />)}</div>}
+          {error && <div className="mt-4"><SectionError message={error} /></div>}
+          {!loading && !error && (
+            <>
+              <p className="text-sm text-muted mt-4">“{q}” — {results.length}টি বই পাওয়া গেছে</p>
+              {authors.length > 0 && (
+                <div className="mt-4"><h2 className="font-semibold mb-2">{t('authors')}</h2><div className="flex flex-wrap gap-2">{authors.map((a) => <Link key={a.id} to={`/authors/${a.slug}`} className="px-4 py-2 rounded-full border bg-white dark:bg-white/5 text-sm font-medium hover:border-primary">{a.nameBn}</Link>)}</div></div>
+              )}
+              {publishers.length > 0 && (
+                <div className="mt-4"><h2 className="font-semibold mb-2">{t('publishers')}</h2><div className="flex flex-wrap gap-2">{publishers.map((p) => <Link key={p.id} to={`/publishers/${p.slug}`} className="px-4 py-2 rounded-full border bg-white dark:bg-white/5 text-sm font-medium hover:border-primary">{p.nameBn}</Link>)}</div></div>
+              )}
+              <div className="mt-6">
+                {results.length === 0 ? <EmptyState icon={SearchIcon} title={t('noBooks')} text={t('noBooksText')} /> : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">{results.map((b) => <BookCard key={b.id} book={b} />)}</div>
+                )}
+              </div>
+            </>
           )}
-          {publishers.length > 0 && (
-            <div className="mt-4"><h2 className="font-semibold mb-2">{t('publishers')}</h2><div className="flex flex-wrap gap-2">{publishers.map((p) => <Link key={p.id} to={`/publishers/${p.slug}`} className="px-4 py-2 rounded-full border bg-white dark:bg-white/5 text-sm font-medium hover:border-primary">{p.nameBn}</Link>)}</div></div>
-          )}
-          <div className="mt-6">
-            {results.length === 0 ? <EmptyState icon={SearchIcon} title={t('noBooks')} text={t('noBooksText')} /> : (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">{results.map((b) => <BookCard key={b.id} book={b} />)}</div>
-            )}
-          </div>
         </>
       )}
       {!q && <p className="text-muted mt-6">বই, লেখক, প্রকাশক, ISBN বা বিষয় দিয়ে খুঁজুন। যেমন: হিমু, রবীন্দ্রনাথ, উপন্যাস।</p>}

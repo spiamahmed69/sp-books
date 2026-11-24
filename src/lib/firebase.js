@@ -2,14 +2,17 @@
 // If no VITE_FIREBASE_API_KEY is set (or VITE_DEMO_MODE=true) the app runs in
 // clearly-labelled Demo Mode on localStorage data. No credentials are ever
 // invented here; real keys come from the user's own Firebase project (.env).
+//
+// NOTE: Firebase Storage is NOT enabled in this project (it needs the Blaze
+// plan / billing), so `storage` stays null. Image uploads go through the
+// Vercel serverless function api/upload.js (ImgBB, server-side key) instead.
 import { initializeApp } from 'firebase/app'
 import { getAuth } from 'firebase/auth'
 import { getFirestore } from 'firebase/firestore'
-import { getStorage } from 'firebase/storage'
 const apiKey = import.meta.env.VITE_FIREBASE_API_KEY
 const forceDemo = import.meta.env.VITE_DEMO_MODE === 'true'
 export const isDemoMode = !apiKey || forceDemo
-let app = null, auth = null, db = null, storage = null
+let app = null, auth = null, db = null
 if (!isDemoMode) {
   const config = {
     apiKey,
@@ -23,9 +26,9 @@ if (!isDemoMode) {
   app = initializeApp(config)
   auth = getAuth(app)
   db = getFirestore(app)
-  storage = getStorage(app)
 }
-export { app, auth, db, storage }
+export { app, auth, db }
+export const storage = null
 export const COLLECTIONS = [
   'users', 'sellers', 'stores', 'books', 'authors', 'publishers', 'categories',
   'carts', 'wishlists', 'orders', 'sellerOrders', 'payments', 'reviews',

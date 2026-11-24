@@ -45,6 +45,7 @@ export default function Login() {
           <Chrome className="h-5 w-5" /> Google দিয়ে লগইন
         </button>
         {isDemoMode && <p className="text-xs text-muted text-center">ডেমো মোডে Google সাইন-ইন বন্ধ — Firebase কনফিগ করলে চালু হবে।</p>}
+        {!isDemoMode && <p className="text-xs text-muted text-center">Google সাইন-ইন এই Firebase প্রজেক্টে বন্ধ আছে — ইমেইল ও পাসওয়ার্ড দিয়ে লগইন করুন।</p>}
         <p className="text-sm text-center">{t('dontHaveAccount')} <Link to="/register" className="text-primary font-semibold"> {t('register')}</Link></p>
       </form>
       {isDemoMode && (

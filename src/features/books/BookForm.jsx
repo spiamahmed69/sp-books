@@ -2,6 +2,7 @@
 // price/discount/stock management, cover upload via ImageUpload.
 import { useState } from 'react'
 import ImageUpload from '../../components/ImageUpload'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { isbnError, normalizeIsbn } from '../../lib/isbn'
 import { findBookByIsbn, getAuthors, getPublishers, getCategories } from '../../lib/firestore'
 import { slugify, uid } from '../../lib/format'
@@ -12,31 +13,40 @@ export default function BookForm({ initial, sellerId, onSave, onCancel }) {
     price: 200, oldPrice: 250, stock: 20, description: '', descriptionBn: '', coverImage: '',
   })
   const [error, setError] = useState('')
-  const authors = getAuthors()
-  const publishers = getPublishers()
-  const categories = getCategories()
+  const [saving, setSaving] = useState(false)
+  const { data: refData } = useAsyncData(async () => {
+    const [authors, publishers, categories] = await Promise.all([getAuthors(), getPublishers(), getCategories()])
+    return { authors, publishers, categories }
+  }, [])
+  const authors = refData?.authors || []
+  const publishers = refData?.publishers || []
+  const categories = refData?.categories || []
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     const err = isbnError(form.isbn)
     if (err) { setError(err); return }
-    const dup = findBookByIsbn(form.isbn)
-    if (dup && dup.id !== form.id) { setError('এই ISBN-এর বই ইতিমধ্যে আছে। / A book with this ISBN already exists.'); return }
     if (!form.titleBn.trim() || !form.authorId || !form.publisherId || !form.category) { setError('বইয়ের নাম, লেখক, প্রকাশক ও ক্যাটাগরি আবশ্যক।'); return }
     if (Number(form.price) <= 0 || Number(form.stock) < 0) { setError('সঠিক দাম ও স্টক দিন।'); return }
-    const book = {
-      ...form,
-      id: form.id || uid('b'),
-      slug: form.slug || slugify(form.titleBn || form.title) || uid('b'),
-      isbn: normalizeIsbn(form.isbn),
-      price: Number(form.price), oldPrice: Number(form.oldPrice) || Number(form.price),
-      pages: Number(form.pages), stock: Number(form.stock),
-      sellerId, rating: form.rating || 0, totalReviews: form.totalReviews || 0, sold: form.sold || 0,
-      publicationDate: form.publicationDate || new Date().toISOString().slice(0, 10),
-      featured: !!form.featured, bestseller: !!form.bestseller, isNew: true,
-      approvalStatus: form.approvalStatus || 'pending', images: form.coverImage ? [form.coverImage] : [],
-    }
-    onSave(book)
+    setSaving(true)
+    try {
+      const dup = await findBookByIsbn(form.isbn)
+      if (dup && dup.id !== form.id) { setError('এই ISBN-এর বই ইতিমধ্যে আছে। / A book with this ISBN already exists.'); return }
+      const book = {
+        ...form,
+        id: form.id || uid('b'),
+        slug: form.slug || slugify(form.titleBn || form.title) || uid('b'),
+        isbn: normalizeIsbn(form.isbn),
+        price: Number(form.price), oldPrice: Number(form.oldPrice) || Number(form.price),
+        pages: Number(form.pages), stock: Number(form.stock),
+        sellerId, rating: form.rating || 0, totalReviews: form.totalReviews || 0, sold: form.sold || 0,
+        publicationDate: form.publicationDate || new Date().toISOString().slice(0, 10),
+        featured: !!form.featured, bestseller: !!form.bestseller, isNew: true,
+        approvalStatus: form.approvalStatus || 'pending', images: form.coverImage ? [form.coverImage] : [],
+      }
+      await onSave(book)
+    } catch (saveErr) { setError(saveErr.message || 'সংরক্ষণ হয়নি।') }
+    finally { setSaving(false) }
   }
   return (
     <form onSubmit={submit} className="rounded-2xl border bg-white dark:bg-[#2A2521] p-5 space-y-4">
@@ -61,7 +71,7 @@ export default function BookForm({ initial, sellerId, onSave, onCancel }) {
       {error && <p className="text-sm text-red-700" role="alert">{error}</p>}
       <p className="text-xs text-muted">নতুন বই অ্যাডমিন অনুমোদনের পর সাইটে দেখা যাবে (approvalStatus: pending)।</p>
       <div className="flex gap-2">
-        <button type="submit" className="min-h-[48px] px-6 rounded-full bg-primary text-white font-bold">সংরক্ষণ করুন</button>
+        <button type="submit" disabled={saving} className="min-h-[48px] px-6 rounded-full bg-primary text-white font-bold disabled:opacity-60">{saving ? 'সংরক্ষণ হচ্ছে…' : 'সংরক্ষণ করুন'}</button>
         <button type="button" onClick={onCancel} className="min-h-[48px] px-6 rounded-full border border-[#D8C9B0] font-semibold">বাতিল</button>
       </div>
     </form>

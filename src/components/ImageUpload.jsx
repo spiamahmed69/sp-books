@@ -1,6 +1,8 @@
 // Reusable image upload: preview, type + 5 MB validation, progress, error + retry.
 // Demo Mode: simulates the upload with progress and stores a data URL.
-// Firebase Mode: calls the uploadImage Cloud Function (ImgBB, server-side key).
+// Real Mode: XHR POST to the /api/upload Vercel serverless function (ImgBB,
+// key server-side only) with real upload progress. Under `vite dev` there is
+// no /api route, so the upload fails locally with an honest error + retry.
 import { useRef, useState } from 'react'
 import { Upload, X, RotateCcw, Image as ImageIcon } from 'lucide-react'
 import { isDemoMode } from '../lib/firebase'
@@ -30,14 +32,34 @@ export default function ImageUpload({ value, onChange, label = 'Cover image' }) 
         })
         onChange(dataUrl)
       } else {
-        // Firebase mode: POST the file to the uploadImage Cloud Function.
+        // Real mode: XHR to /api/upload (Vercel serverless -> ImgBB) so we
+        // get real upload progress events.
         const form = new FormData()
         form.append('image', file)
         form.append('name', uid('img'))
-        const res = await fetch('/api/uploadImage', { method: 'POST', body: form })
-        if (!res.ok) throw new Error('Upload failed.')
-        const data = await res.json()
-        onChange(data.url)
+        const url = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest()
+          xhr.open('POST', '/api/upload')
+          xhr.upload.addEventListener('progress', (e) => {
+            if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100))
+          })
+          xhr.addEventListener('load', () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              try {
+                const data = JSON.parse(xhr.responseText)
+                if (data.url) resolve(data.url)
+                else reject(new Error(data.error || 'Upload failed.'))
+              } catch { reject(new Error('Upload failed.')) }
+            } else {
+              let msg = 'Upload failed.'
+              try { msg = JSON.parse(xhr.responseText).error || msg } catch { /* keep default */ }
+              reject(new Error(msg))
+            }
+          })
+          xhr.addEventListener('error', () => reject(new Error('Upload failed.')))
+          xhr.send(form)
+        })
+        onChange(url)
         setProgress(100)
       }
     } catch (e) {

@@ -1,8 +1,11 @@
-// Thin service layer over the data layer (books/authors/publishers).
+// Thin async service layer over the data layer (books/authors/publishers).
+// All methods return Promises; the catalogue is small (tens of books), so
+// filtering/sorting happens client-side after one approved-books query —
+// this avoids composite indexes and needs no full-text search provider.
 import { getBooks, getBookBySlug, searchBooks, getAuthors, getPublishers, getCategories, getReviews } from '../lib/firestore'
 export const bookService = {
-  list: (opts = {}) => {
-    let list = getBooks()
+  list: async (opts = {}) => {
+    let list = await getBooks(opts.includePending, { sellerId: opts.sellerId })
     if (opts.category) list = list.filter((b) => b.category === opts.category)
     if (opts.authorId) list = list.filter((b) => b.authorId === opts.authorId)
     if (opts.publisherId) list = list.filter((b) => b.publisherId === opts.publisherId)

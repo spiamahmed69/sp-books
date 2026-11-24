@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom'
 import { Package, CheckCircle2, Truck, Home, Search, XCircle } from 'lucide-react'
 import SEO from '../../components/SEO'
 import BookCover from '../../components/BookCover'
+import { SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { getOrderById } from '../../lib/firestore'
 import { bookService } from '../../services/bookService'
 import { formatTaka } from '../../lib/format'
@@ -19,7 +21,12 @@ export default function OrderTracking() {
   const { t } = useLanguage()
   const [input, setInput] = useState(id || '')
   const [lookup, setLookup] = useState(id || '')
-  const order = lookup ? getOrderById(lookup) : null
+  const { data: order, loading, error } = useAsyncData(() => (lookup ? getOrderById(lookup) : Promise.resolve(null)), [lookup])
+  const { data: itemBooks } = useAsyncData(async () => {
+    if (!order) return {}
+    const entries = await Promise.all((order.items || []).map(async (it) => [it.bookId, await bookService.bySlug(it.bookId)]))
+    return Object.fromEntries(entries)
+  }, [order?.id])
   const current = order ? ORDER.indexOf(order.status) : -1
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
@@ -29,7 +36,9 @@ export default function OrderTracking() {
         <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="অর্ডার আইডি (যেমন: SPB_…)" aria-label="Order ID" className="flex-1 min-h-[48px] rounded-full border border-[#D8C9B0] bg-white dark:bg-white/5 px-4 min-w-0" />
         <button type="submit" className="min-h-[48px] px-5 rounded-full bg-primary text-white font-semibold inline-flex items-center gap-2"><Search className="h-4 w-4" /> খুঁজুন</button>
       </form>
-      {lookup && !order && (
+      {loading && <p className="text-muted mt-6">অর্ডার খোঁজা হচ্ছে…</p>}
+      {error && <div className="mt-6"><SectionError message="অর্ডার দেখা যায়নি — নিজের অর্ডার দেখতে লগইন করুন।" /></div>}
+      {!loading && !error && lookup && !order && (
         <p className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 flex items-center gap-2" role="alert"><XCircle className="h-5 w-5 shrink-0" /> এই আইডির কোনো অর্ডার পাওয়া যায়নি। আইডিটি ঠিক আছে কি না দেখুন।</p>
       )}
       {order && (
@@ -57,7 +66,7 @@ export default function OrderTracking() {
           )}
           <div className="mt-6 border-t pt-4 space-y-2">
             {(order.items || []).map((it, i) => {
-              const book = bookService.bySlug(it.bookId)
+              const book = itemBooks?.[it.bookId]
               return (
                 <div key={i} className="flex gap-3 items-center text-sm">
                   {book && <BookCover book={book} className="w-10 rounded shrink-0" />}

@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, LineChart, Line, CartesianGrid } from 'recharts'
 import SEO from '../../components/SEO'
 import BookCover from '../../components/BookCover'
@@ -7,7 +8,8 @@ import ImageUpload from '../../components/ImageUpload'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { useToast } from '../../context/ToastContext'
-import { getBooks, saveBook, deleteBook, getSellerOrders, updateOrderStatus, getSellers, saveSeller, getCoupons, saveCoupon, deleteCoupon, getReviews, getSettings } from '../../lib/firestore'
+import { isDemoMode } from '../../lib/firebase'
+import { getBooks, saveBook, deleteBook, getSellerOrders, updateOrderStatus, getSellers, saveSeller, getCoupons, saveCoupon, deleteCoupon, getReviews } from '../../lib/firestore'
 import { formatTaka } from '../../lib/format'
 const TABS = ['overview', 'books', 'add', 'orders', 'earnings', 'coupons', 'reviews', 'settings']
 export default function SellerDashboard() {
@@ -17,12 +19,28 @@ export default function SellerDashboard() {
   const [tab, setTab] = useState('overview')
   const [editing, setEditing] = useState(null)
   const [refresh, setRefresh] = useState(0)
-  const sellerId = user?.sellerId || 's1'
-  const seller = useMemo(() => getSellers().find((s) => s.id === sellerId) || { id: sellerId, storeName: user?.name || 'My Store', status: 'pending', verified: false }, [sellerId, refresh])
-  const myBooks = useMemo(() => getBooks(true).filter((b) => b.sellerId === sellerId), [sellerId, refresh])
-  const myOrders = useMemo(() => getSellerOrders().filter((o) => o.sellerId === sellerId), [sellerId, refresh])
-  const myReviews = useMemo(() => getReviews(null, true).filter((r) => myBooks.some((b) => b.id === r.bookId)), [myBooks])
-  const coupons = useMemo(() => getCoupons(), [refresh])
+  const [loading, setLoading] = useState(true)
+  const sellerId = user?.sellerId || (isDemoMode ? 's1' : null)
+  const [data, setData] = useState({ seller: null, myBooks: [], myOrders: [], myReviews: [], coupons: [] })
+  useEffect(() => {
+    let alive = true
+    setLoading(true)
+    ;(async () => {
+      try {
+        if (!sellerId) { if (alive) setData({ seller: null, myBooks: [], myOrders: [], coupons: [], myReviews: [] }); return }
+        const [sellers, books, orders, coupons] = await Promise.all([getSellers(), getBooks(true), getSellerOrders(), getCoupons()])
+        const seller = sellers.find((s) => s.id === sellerId) || { id: sellerId, storeName: user?.name || 'My Store', status: 'pending', verified: false }
+        const myBooks = books.filter((b) => b.sellerId === sellerId)
+        const myOrders = orders.filter((o) => o.sellerId === sellerId)
+        const allReviews = await getReviews(null, true)
+        const myReviews = allReviews.filter((r) => myBooks.some((b) => b.id === r.bookId))
+        if (alive) setData({ seller, myBooks, myOrders, coupons, myReviews })
+      } catch (e) { if (alive) toast.error(e.message || 'ডেটা লোড হয়নি।') }
+      finally { if (alive) setLoading(false) }
+    })()
+    return () => { alive = false }
+  }, [sellerId, refresh])
+  const { seller, myBooks, myOrders, myReviews, coupons } = data
   const revenue = myOrders.reduce((s, o) => s + o.subtotal, 0)
   const earnings = myOrders.reduce((s, o) => s + o.sellerEarnings, 0)
   const commission = myOrders.reduce((s, o) => s + o.commission, 0)
@@ -31,27 +49,39 @@ export default function SellerDashboard() {
     myOrders.forEach((o) => { const d = (o.createdAt || '').slice(0, 10); byDay[d] = (byDay[d] || 0) + o.subtotal })
     return Object.entries(byDay).map(([date, sales]) => ({ date: date.slice(5), sales }))
   }, [myOrders])
-  const save = (book) => {
-    try {
-      saveBook(book)
-      toast.success(book.approvalStatus === 'approved' ? 'বই সংরক্ষণ হয়েছে।' : 'বই জমা হয়েছে — অ্যাডমিন অনুমোদনের অপেক্ষায়।')
-      setEditing(null); setTab('books'); setRefresh((r) => r + 1)
-    } catch (e) { toast.error(e.message) }
+  const run = async (fn, okMsg) => {
+    try { await fn(); if (okMsg) toast.success(okMsg) } catch (e) { toast.error(e.message || 'কাজটি হয়নি।') }
+  }
+  const save = async (book) => {
+    await saveBook(book)
+    toast.success(book.approvalStatus === 'approved' ? 'বই সংরক্ষণ হয়েছে।' : 'বই জমা হয়েছে — অ্যাডমিন অনুমোদনের অপেক্ষায়।')
+    setEditing(null); setTab('books'); setRefresh((r) => r + 1)
   }
   const [couponForm, setCouponForm] = useState({ code: '', discountPercent: 10, minOrder: 500 })
+  if (!sellerId) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-10">
+        <SEO title={t('sellerDashboard')} description="Seller dashboard — SP Books" />
+        <h1 className="font-display text-3xl font-bold">{t('sellerDashboard')}</h1>
+        <p className="text-muted mt-4">আপনার কোনো সেলার স্টোর নেই। সেলার হতে নিচের লিংক থেকে রেজিস্টার করুন।</p>
+        <Link to="/seller/register" className="mt-4 inline-block min-h-[48px] px-6 rounded-full bg-primary text-white font-bold leading-[48px]">{t('becomeSeller')}</Link>
+      </div>
+    )
+  }
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <SEO title={t('sellerDashboard')} description="Seller dashboard — SP Books" />
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h1 className="font-display text-3xl font-bold">{seller.storeNameBn || seller.storeName}</h1>
-          <p className="text-sm text-muted">স্ট্যাটাস: <span className={`font-semibold ${seller.status === 'approved' ? 'text-green-700' : 'text-amber-700'}`}>{t(seller.status) || seller.status}</span> · {seller.verified ? t('verified') : t('notVerified')}</p>
+          <h1 className="font-display text-3xl font-bold">{seller?.storeNameBn || seller?.storeName || 'My Store'}</h1>
+          <p className="text-sm text-muted">স্ট্যাটাস: <span className={`font-semibold ${seller?.status === 'approved' ? 'text-green-700' : 'text-amber-700'}`}>{t(seller?.status || 'pending') || seller?.status}</span> · {seller?.verified ? t('verified') : t('notVerified')}</p>
         </div>
         <button onClick={() => { setEditing(null); setTab('add') }} className="min-h-[48px] px-5 rounded-full bg-primary text-white font-bold">+ {t('addBook')}</button>
       </div>
-      {seller.status !== 'approved' && (
+      {seller?.status !== 'approved' && (
         <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">আপনার স্টোরটি এখনো অ্যাডমিন অনুমোদনের অপেক্ষায় আছে। অনুমোদনের পর আপনার বই কাস্টমার সাইটে দেখা যাবে।</p>
       )}
+      {loading && <p className="text-muted mt-4">ডেটা লোড হচ্ছে…</p>}
       <div className="mt-6 flex gap-2 overflow-x-auto no-scrollbar" role="tablist" aria-label="Seller sections">
         {TABS.map((tb) => (
           <button key={tb} role="tab" aria-selected={tab === tb} onClick={() => setTab(tb)} className={`min-h-[44px] px-4 rounded-full text-sm font-semibold whitespace-nowrap ${tab === tb ? 'bg-primary text-white' : 'bg-white dark:bg-white/5 border'}`}>{t(tb === 'books' ? 'myBooks' : tb === 'add' ? 'addBook' : tb === 'orders' ? 'myOrders' : tb === 'earnings' ? 'earnings' : tb === 'coupons' ? 'coupons' : tb === 'reviews' ? 'reviews' : tb === 'settings' ? 'settings' : 'overview')}</button>
@@ -88,7 +118,7 @@ export default function SellerDashboard() {
                 <p className="text-sm text-muted">{formatTaka(b.price)} · স্টক {b.stock} · {b.sold} বিক্রি · <span className={b.approvalStatus === 'approved' ? 'text-green-700 font-medium' : 'text-amber-700 font-medium'}>{t(b.approvalStatus) || b.approvalStatus}</span></p>
               </div>
               <button onClick={() => { setEditing(b); setTab('add') }} className="min-h-[44px] px-4 rounded-lg border font-medium text-sm">{t('edit')}</button>
-              <button onClick={() => { if (confirm('বইটি মুছে ফেলবেন?')) { deleteBook(b.id); setRefresh((r) => r + 1); toast.success('বই মুছে ফেলা হয়েছে।') } }} className="min-h-[44px] px-4 rounded-lg border border-red-200 text-red-700 font-medium text-sm">{t('delete')}</button>
+              <button onClick={() => { if (confirm('বইটি মুছে ফেলবেন?')) run(async () => { await deleteBook(b.id); setRefresh((r) => r + 1) }, 'বই মুছে ফেলা হয়েছে।') }} className="min-h-[44px] px-4 rounded-lg border border-red-200 text-red-700 font-medium text-sm">{t('delete')}</button>
             </div>
           ))}
         </div>
@@ -98,6 +128,7 @@ export default function SellerDashboard() {
       )}
       {tab === 'orders' && (
         <div className="mt-6 space-y-3">
+          {!isDemoMode && <p className="rounded-xl border p-4 text-sm text-muted">সেলার অর্ডার Cloud Function চালু হলে এখানে দেখা যাবে — অর্ডারের সময় সার্ভার থেকে sellerOrders তৈরি হয়। বিস্তারিত DEPLOYMENT.md-এ দেখুন।</p>}
           {myOrders.length === 0 && <p className="text-muted">এখনো কোনো অর্ডার নেই।</p>}
           {myOrders.map((o) => (
             <div key={o.id} className="rounded-xl border bg-white dark:bg-[#2A2521] p-4">
@@ -106,7 +137,7 @@ export default function SellerDashboard() {
               <p className="text-sm font-bold text-primary mt-1">{formatTaka(o.subtotal)} · আয় {formatTaka(o.sellerEarnings)} (কমিশন {formatTaka(o.commission)})</p>
               <div className="flex gap-2 mt-3 flex-wrap">
                 {['confirmed', 'shipped', 'delivered'].map((st) => (
-                  <button key={st} onClick={() => { updateOrderStatus(o.parentOrderId, st, user); setRefresh((r) => r + 1); toast.success(`অর্ডার ${t(st)} হয়েছে।`) }} className="min-h-[40px] px-3 rounded-lg border text-sm font-medium">{t(st)}</button>
+                  <button key={st} onClick={() => run(async () => { await updateOrderStatus(o.parentOrderId, st, user); setRefresh((r) => r + 1) }, `অর্ডার ${t(st)} হয়েছে।`)} className="min-h-[40px] px-3 rounded-lg border text-sm font-medium">{t(st)}</button>
                 ))}
               </div>
             </div>
@@ -130,7 +161,8 @@ export default function SellerDashboard() {
       )}
       {tab === 'coupons' && (
         <div className="mt-6 max-w-2xl space-y-4">
-          <form onSubmit={(e) => { e.preventDefault(); saveCoupon({ ...couponForm, code: couponForm.code.toUpperCase(), active: true, description: `${couponForm.discountPercent}% off` }); setRefresh((r) => r + 1); toast.success('কুপন তৈরি হয়েছে।'); setCouponForm({ code: '', discountPercent: 10, minOrder: 500 }) }} className="rounded-xl border bg-white dark:bg-[#2A2521] p-5 grid sm:grid-cols-3 gap-3">
+          {!isDemoMode && <p className="rounded-xl border p-4 text-sm text-muted">রিয়েল মোডে কুপন শুধু অ্যাডমিন/মডারেটর তৈরি করতে পারেন — সেলার কুপন তৈরি করতে পারবেন না।</p>}
+          <form onSubmit={(e) => { e.preventDefault(); run(async () => { await saveCoupon({ ...couponForm, code: couponForm.code.toUpperCase(), active: true, description: `${couponForm.discountPercent}% off` }); setRefresh((r) => r + 1); setCouponForm({ code: '', discountPercent: 10, minOrder: 500 }) }, 'কুপন তৈরি হয়েছে।') }} className="rounded-xl border bg-white dark:bg-[#2A2521] p-5 grid sm:grid-cols-3 gap-3">
             <input value={couponForm.code} onChange={(e) => setCouponForm({ ...couponForm, code: e.target.value })} placeholder="কুপন কোড" required className="min-h-[48px] rounded-lg border px-3" />
             <input type="number" value={couponForm.discountPercent} onChange={(e) => setCouponForm({ ...couponForm, discountPercent: Number(e.target.value) })} placeholder="ছাড় %" className="min-h-[48px] rounded-lg border px-3" />
             <input type="number" value={couponForm.minOrder} onChange={(e) => setCouponForm({ ...couponForm, minOrder: Number(e.target.value) })} placeholder="ন্যূনতম অর্ডার ৳" className="min-h-[48px] rounded-lg border px-3" />
@@ -139,7 +171,7 @@ export default function SellerDashboard() {
           {coupons.map((c) => (
             <div key={c.code} className="flex justify-between items-center rounded-xl border bg-white dark:bg-[#2A2521] p-4">
               <span><strong>{c.code}</strong> — {c.discountPercent}% ছাড়, ন্যূনতম {formatTaka(c.minOrder)}</span>
-              <button onClick={() => { deleteCoupon(c.code); setRefresh((r) => r + 1) }} className="text-red-700 text-sm font-medium min-h-[40px] px-3">{t('delete')}</button>
+              <button onClick={() => run(async () => { await deleteCoupon(c.code); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3">{t('delete')}</button>
             </div>
           ))}
         </div>
@@ -158,9 +190,9 @@ export default function SellerDashboard() {
       {tab === 'settings' && (
         <div className="mt-6 max-w-2xl rounded-xl border bg-white dark:bg-[#2A2521] p-5 space-y-4">
           <h2 className="font-semibold text-lg">{t('storeSettings')}</h2>
-          <ImageUpload label="স্টোরের লোগো" value={seller.logo || ''} onChange={(v) => { saveSeller({ ...seller, logo: v }); setRefresh((r) => r + 1) }} />
-          <div><label className="block text-sm font-medium mb-1">স্টোরের বিবরণ</label><textarea defaultValue={seller.description || ''} rows={3} onBlur={(e) => { saveSeller({ ...seller, description: e.target.value }); toast.success('সংরক্ষণ হয়েছে।') }} className="w-full rounded-lg border border-[#D8C9B0] bg-white dark:bg-white/5 p-3" /></div>
-          <p className="text-sm text-muted">যাচাইকরণ অবস্থা: {seller.verified ? 'যাচাইকৃত' : 'অপেক্ষমাণ — অ্যাডমিন যাচাই করবেন।'}</p>
+          <ImageUpload label="স্টোরের লোগো" value={seller?.logo || ''} onChange={(v) => { run(async () => { await saveSeller({ ...seller, logo: v }); setRefresh((r) => r + 1) }) }} />
+          <div><label className="block text-sm font-medium mb-1">স্টোরের বিবরণ</label><textarea defaultValue={seller?.description || ''} rows={3} onBlur={(e) => { run(async () => { await saveSeller({ ...seller, description: e.target.value }); }, 'সংরক্ষণ হয়েছে।') }} className="w-full rounded-lg border border-[#D8C9B0] bg-white dark:bg-white/5 p-3" /></div>
+          <p className="text-sm text-muted">যাচাইকরণ অবস্থা: {seller?.verified ? 'যাচাইকৃত' : 'অপেক্ষমাণ — অ্যাডমিন যাচাই করবেন।'}</p>
         </div>
       )}
     </div>

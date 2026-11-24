@@ -1,14 +1,20 @@
 import { Link } from 'react-router-dom'
 import SEO from '../../components/SEO'
+import { SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { getPublishers } from '../../lib/firestore'
 export default function Publishers() {
   const { t } = useLanguage()
-  const publishers = getPublishers().filter((p) => p.books > 0)
+  const { data, loading, error } = useAsyncData(getPublishers, [])
+  const publishers = (data || []).filter((p) => p.books > 0)
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <SEO title={t('publishers')} description="SP Books — প্রকাশক পরিচিতি" />
       <h1 className="font-display text-3xl font-bold">{t('publishers')}</h1>
+      {loading && <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6" aria-busy="true">{[1, 2, 3, 4].map((i) => <div key={i} className="skeleton h-40 rounded-xl" />)}</div>}
+      {error && <div className="mt-6"><SectionError message={error} /></div>}
+      {!loading && !error && publishers.length === 0 && <p className="text-muted mt-6">এখনো কোনো প্রকাশক যোগ হয়নি।</p>}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-6">
         {publishers.map((p) => (
           <Link key={p.id} to={`/publishers/${p.slug}`} className="rounded-xl border border-[#E9DFCE] dark:border-white/10 bg-white dark:bg-[#2A2521] p-5 hover:shadow-md transition">

@@ -5,19 +5,20 @@ import SEO from '../../components/SEO'
 import BookCover from '../../components/BookCover'
 import BookCard from '../../components/BookCard'
 import RatingStars from '../../components/RatingStars'
-import { EmptyState } from '../../components/States'
+import { EmptyState, BookCardSkeleton, SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
 import { useCart } from '../../context/CartContext'
 import { useWishlist } from '../../context/WishlistContext'
 import { useToast } from '../../context/ToastContext'
 import { useAuth } from '../../context/AuthContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
+import { useBook } from '../../hooks/useBooks'
 import { bookService } from '../../services/bookService'
-import { getReviews, addReview, pushRecentlyViewed, getRecentlyViewed } from '../../lib/firestore'
-import { getAuthor, getPublisher, getCategory, getSeller } from '../../data/demo'
+import { getReviews, addReview, pushRecentlyViewed, getRecentlyViewed, getAuthor, getPublisher, getCategory, getSeller } from '../../lib/firestore'
 import { formatTaka, discountPercent, uid } from '../../lib/format'
 export default function BookDetails() {
   const { slug } = useParams()
-  const book = bookService.bySlug(slug)
+  const { book, loading: bookLoading, error: bookError } = useBook(slug)
   const { t } = useLanguage()
   const { add } = useCart()
   const { toggle, has } = useWishlist()
@@ -30,33 +31,69 @@ export default function BookDetails() {
   const [recentIds, setRecentIds] = useState([])
   useEffect(() => {
     if (book) { pushRecentlyViewed(book.id); setRecentIds(getRecentlyViewed().filter((id) => id !== book.id)) }
-  }, [slug])
-  const reviews = useMemo(() => (book ? getReviews(book.id) : []), [book, reviewDone])
-  if (!book) {
-    return <div className="mx-auto max-w-7xl px-4 py-16"><EmptyState icon={BookOpen} title={t('noBooks')} text={t('noBooksText')} action={<Link to="/books" className="min-h-[44px] px-5 rounded-lg bg-primary text-white font-semibold inline-flex items-center">{t('books')}</Link>} /></div>
-  }
-  const author = getAuthor(book.authorId)
-  const publisher = getPublisher(book.publisherId)
-  const category = getCategory(book.category)
-  const seller = getSeller(book.sellerId)
-  const off = discountPercent(book.price, book.oldPrice)
-  const related = bookService.list({ category: book.category }).filter((b) => b.id !== book.id).slice(0, 4)
-  const byAuthor = bookService.list({ authorId: book.authorId }).filter((b) => b.id !== book.id).slice(0, 4)
-  const byPublisher = bookService.list({ publisherId: book.publisherId }).filter((b) => b.id !== book.id).slice(0, 4)
-  const boughtTogether = [...bookService.list({ sort: 'bestselling' })].filter((b) => b.id !== book.id).slice(0, 3)
-  const recent = recentIds.map((id) => bookService.bySlug(id)).filter(Boolean).slice(0, 4)
+  }, [slug, book?.id])
+  const { data: meta } = useAsyncData(async () => {
+    if (!book) return null
+    const [author, publisher, category, seller] = await Promise.all([
+      getAuthor(book.authorId), getPublisher(book.publisherId), getCategory(book.category), getSeller(book.sellerId),
+    ])
+    return { author, publisher, category, seller }
+  }, [book?.id])
+  const { data: lists } = useAsyncData(async () => {
+    if (!book) return null
+    const [related, byAuthor, byPublisher, boughtTogether, recent] = await Promise.all([
+      bookService.list({ category: book.category }),
+      bookService.list({ authorId: book.authorId }),
+      bookService.list({ publisherId: book.publisherId }),
+      bookService.list({ sort: 'bestselling' }),
+      Promise.all(recentIds.map((id) => bookService.bySlug(id))),
+    ])
+    return {
+      related: related.filter((b) => b.id !== book.id).slice(0, 4),
+      byAuthor: byAuthor.filter((b) => b.id !== book.id).slice(0, 4),
+      byPublisher: byPublisher.filter((b) => b.id !== book.id).slice(0, 4),
+      boughtTogether: boughtTogether.filter((b) => b.id !== book.id).slice(0, 3),
+      recent: recent.filter(Boolean).slice(0, 4),
+    }
+  }, [book?.id, recentIds.join(',')])
+  const { data: reviewsData, loading: reviewsLoading } = useAsyncData(() => (book ? getReviews(book.id) : Promise.resolve([])), [book?.id, reviewDone])
+  const reviews = reviewsData || []
+  const author = meta?.author
+  const publisher = meta?.publisher
+  const category = meta?.category
+  const seller = meta?.seller
+  const related = lists?.related || []
+  const byAuthor = lists?.byAuthor || []
+  const byPublisher = lists?.byPublisher || []
+  const boughtTogether = lists?.boughtTogether || []
+  const recent = lists?.recent || []
   const share = async () => {
     const url = window.location.href
     if (navigator.share) { try { await navigator.share({ title: book.titleBn, url }) } catch { /* dismissed */ } }
     else { await navigator.clipboard.writeText(url); toast.success('লিংক কপি হয়েছে। / Link copied.') }
   }
-  const submitReview = (e) => {
+  const submitReview = async (e) => {
     e.preventDefault()
     if (!user) { toast.error(t('loginRequired')); return }
     if (!reviewText.trim()) { toast.error('রিভিউ লিখুন।'); return }
-    addReview({ id: uid('r'), bookId: book.id, userName: user.name, rating: reviewRating, comment: reviewText.trim(), date: new Date().toISOString().slice(0, 10), status: 'approved' })
-    setReviewText(''); setReviewDone(true); toast.success('রিভিউ জমা হয়েছে। ধন্যবাদ!')
+    try {
+      const saved = await addReview({ id: uid('r'), bookId: book.id, userName: user.name, rating: reviewRating, comment: reviewText.trim(), date: new Date().toISOString().slice(0, 10), status: 'approved' })
+      setReviewText(''); setReviewDone(true)
+      toast.success(saved.status === 'pending' ? 'রিভিউ জমা হয়েছে। অনুমোদনের পর দেখা যাবে।' : 'রিভিউ জমা হয়েছে। ধন্যবাদ!')
+    } catch (err) { toast.error(err.message || 'রিভিউ জমা হয়নি।') }
   }
+  if (bookLoading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-6" aria-busy="true">
+        <div className="grid md:grid-cols-[320px_1fr] gap-8"><div className="skeleton aspect-[3/4] rounded-2xl" /><div className="space-y-3"><div className="skeleton h-10 w-2/3 rounded" /><div className="skeleton h-5 w-1/2 rounded" /><div className="skeleton h-24 w-full rounded" /></div></div>
+      </div>
+    )
+  }
+  if (bookError) return <div className="mx-auto max-w-7xl px-4 py-16"><SectionError message={bookError} /></div>
+  if (!book) {
+    return <div className="mx-auto max-w-7xl px-4 py-16"><EmptyState icon={BookOpen} title={t('noBooks')} text={t('noBooksText')} action={<Link to="/books" className="min-h-[44px] px-5 rounded-lg bg-primary text-white font-semibold inline-flex items-center">{t('books')}</Link>} /></div>
+  }
+  const off = discountPercent(book.price, book.oldPrice)
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <SEO title={book.titleBn || book.title} description={book.descriptionBn || book.description} book={{ ...book, authorName: author?.name }} breadcrumbs={[{ name: 'হোম', url: '/' }, { name: category?.nameBn || '', url: `/categories/${book.category}` }, { name: book.titleBn || book.title, url: `/books/${book.slug}` }]} />
@@ -122,7 +159,8 @@ export default function BookDetails() {
       </DetailSection>
       <DetailSection title={t('customerReviews')}>
         <div className="space-y-3">
-          {reviews.length === 0 && <p className="text-muted text-sm">এখনো কোনো রিভিউ নেই। প্রথম রিভিউটি আপনিই লিখুন।</p>}
+          {reviewsLoading && <p className="text-muted text-sm">রিভিউ লোড হচ্ছে…</p>}
+          {!reviewsLoading && reviews.length === 0 && <p className="text-muted text-sm">এখনো কোনো রিভিউ নেই। প্রথম রিভিউটি আপনিই লিখুন।</p>}
           {reviews.map((r) => (
             <div key={r.id} className="rounded-xl border p-4">
               <div className="flex items-center gap-2"><RatingStars rating={r.rating} /><span className="font-semibold text-sm">{r.userName}</span><span className="text-xs text-muted">{r.date}</span></div>

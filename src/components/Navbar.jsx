@@ -5,8 +5,9 @@ import { useCart } from '../context/CartContext'
 import { useWishlist } from '../context/WishlistContext'
 import { useAuth } from '../context/AuthContext'
 import { useLanguage } from '../context/LanguageContext'
+import { useAsyncData } from '../hooks/useAsyncData'
 import { isDemoMode } from '../lib/firebase'
-import { getCategories } from '../lib/firestore'
+import { getCategories, searchBooks } from '../lib/firestore'
 export default function Navbar() {
   const { count } = useCart()
   const { ids } = useWishlist()
@@ -17,8 +18,10 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'))
   const [suggest, setSuggest] = useState([])
+  const suggestSeq = useRef(0)
   const navigate = useNavigate()
-  const cats = getCategories()
+  const { data: catData } = useAsyncData(() => getCategories(), [])
+  const cats = catData || []
   useEffect(() => { document.documentElement.classList.toggle('dark', dark) }, [dark])
   const onSearch = (e) => {
     e.preventDefault()
@@ -29,8 +32,9 @@ export default function Navbar() {
   const onType = async (v) => {
     setQ(v)
     if (v.trim().length >= 2) {
-      const { searchBooks } = await import('../lib/firestore')
-      setSuggest(searchBooks(v).slice(0, 5))
+      const seq = ++suggestSeq.current
+      const results = await searchBooks(v)
+      if (seq === suggestSeq.current) setSuggest(results.slice(0, 5))
     } else setSuggest([])
   }
   const dashboardLink = user?.role === 'admin' || user?.role === 'moderator' ? '/admin' : user?.role === 'seller' ? '/seller' : '/profile'

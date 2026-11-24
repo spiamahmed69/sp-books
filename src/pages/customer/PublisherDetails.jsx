@@ -1,16 +1,27 @@
 import { useParams } from 'react-router-dom'
 import SEO from '../../components/SEO'
 import BookCard from '../../components/BookCard'
-import { EmptyState } from '../../components/States'
+import { EmptyState, BookCardSkeleton, SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { bookService } from '../../services/bookService'
-import { getPublishers } from '../../lib/firestore'
+import { getPublisherBySlug } from '../../lib/firestore'
 import { BookOpen } from 'lucide-react'
 export default function PublisherDetails() {
   const { slug } = useParams()
   const { t } = useLanguage()
-  const publisher = getPublishers().find((p) => p.slug === slug)
-  const books = publisher ? bookService.list({ publisherId: publisher.id }) : []
+  const { data: publisher, loading, error } = useAsyncData(() => getPublisherBySlug(slug), [slug])
+  const { data: booksData, loading: booksLoading } = useAsyncData(() => (publisher ? bookService.list({ publisherId: publisher.id }) : Promise.resolve([])), [publisher?.id])
+  const books = booksData || []
+  if (loading || booksLoading) {
+    return (
+      <div className="mx-auto max-w-7xl px-4 py-6" aria-busy="true">
+        <div className="skeleton h-10 w-64 rounded" />
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 mt-8">{[1, 2, 3, 4].map((i) => <BookCardSkeleton key={i} />)}</div>
+      </div>
+    )
+  }
+  if (error) return <div className="mx-auto max-w-7xl px-4 py-16"><SectionError message={error} /></div>
   if (!publisher) return <div className="mx-auto max-w-7xl px-4 py-16"><EmptyState icon={BookOpen} title={t('noBooks')} text={t('noBooksText')} /></div>
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">

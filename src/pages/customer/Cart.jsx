@@ -2,9 +2,10 @@ import { Link, useNavigate } from 'react-router-dom'
 import { Trash2, ShoppingCart, Minus, Plus } from 'lucide-react'
 import SEO from '../../components/SEO'
 import BookCover from '../../components/BookCover'
-import { EmptyState } from '../../components/States'
+import { EmptyState, BookCardSkeleton } from '../../components/States'
 import { useCart } from '../../context/CartContext'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { bookService } from '../../services/bookService'
 import { formatTaka } from '../../lib/format'
 import { getSettings } from '../../lib/firestore'
@@ -12,15 +13,30 @@ export default function Cart() {
   const { items, setQty, remove, clear } = useCart()
   const { t } = useLanguage()
   const navigate = useNavigate()
-  const settings = getSettings()
-  const detailed = items.map((i) => ({ ...i, book: bookService.bySlug(i.bookId) })).filter((i) => i.book)
+  const itemsKey = JSON.stringify(items)
+  const { data, loading } = useAsyncData(async () => {
+    const list = JSON.parse(itemsKey)
+    const settings = await getSettings()
+    const books = await Promise.all(list.map((i) => bookService.bySlug(i.bookId)))
+    return {
+      settings,
+      detailed: list.map((i, idx) => ({ ...i, book: books[idx] })).filter((i) => i.book),
+    }
+  }, [itemsKey])
+  const settings = data?.settings || { freeShippingAbove: 1500, shippingDhaka: 60 }
+  const detailed = data?.detailed || []
   const subtotal = detailed.reduce((s, i) => s + i.book.price * i.qty, 0)
   const shipping = subtotal === 0 ? 0 : subtotal >= settings.freeShippingAbove ? 0 : settings.shippingDhaka
   return (
     <div className="mx-auto max-w-7xl px-4 py-6">
       <SEO title={t('cart')} description="Your cart — SP Books" />
       <h1 className="font-display text-3xl font-bold">{t('cart')}</h1>
-      {detailed.length === 0 ? (
+      {loading ? (
+        <div className="mt-6 grid lg:grid-cols-[1fr_340px] gap-6 items-start" aria-busy="true">
+          <div className="space-y-3">{[1, 2].map((i) => <div key={i} className="skeleton h-28 rounded-xl" />)}</div>
+          <div className="skeleton h-56 rounded-xl" />
+        </div>
+      ) : detailed.length === 0 ? (
         <div className="mt-6"><EmptyState icon={ShoppingCart} title={t('emptyCart')} text={t('emptyCartText')} action={<Link to="/books" className="min-h-[44px] px-5 rounded-lg bg-primary text-white font-semibold inline-flex items-center">{t('continueShopping')}</Link>} /></div>
       ) : (
         <div className="mt-6 grid lg:grid-cols-[1fr_340px] gap-6 items-start">

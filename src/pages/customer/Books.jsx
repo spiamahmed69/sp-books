@@ -3,8 +3,9 @@ import { useParams, useSearchParams } from 'react-router-dom'
 import { SlidersHorizontal, BookOpen } from 'lucide-react'
 import SEO from '../../components/SEO'
 import BookCard from '../../components/BookCard'
-import { EmptyState } from '../../components/States'
+import { EmptyState, BookCardSkeleton, SectionError } from '../../components/States'
 import { useLanguage } from '../../context/LanguageContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { bookService } from '../../services/bookService'
 import { getAuthors, getPublishers, getCategories } from '../../lib/firestore'
 const SORTS = [
@@ -24,26 +25,37 @@ export default function Books({ mode = 'all' }) {
   const [binding, setBinding] = useState('')
   const [maxPrice, setMaxPrice] = useState(1000)
   const [showFilters, setShowFilters] = useState(false)
-  const authors = getAuthors()
-  const publishers = getPublishers()
-  const categories = getCategories()
-  const books = useMemo(() => {
-    let opts = { sort }
-    if (mode === 'category') opts.category = slug
-    if (mode === 'bestseller') opts.bestseller = true
-    if (mode === 'new') opts.isNew = true
-    if (mode === 'discounted') opts.discounted = true
-    if (cat) opts.category = cat
-    if (author) opts.authorId = author
-    if (publisher) opts.publisherId = publisher
-    if (language) opts.language = language
-    if (binding) opts.binding = binding
-    if (maxPrice < 1000) opts.maxPrice = maxPrice
-    let list = bookService.list(opts)
-    const q = params.get('q')
-    if (q) list = list.filter((b) => bookService.search(q).some((x) => x.id === b.id))
+  const q = params.get('q') || ''
+  const optsKey = useMemo(() => JSON.stringify({ mode, slug, sort, cat, author, publisher, language, binding, maxPrice, q }), [mode, slug, sort, cat, author, publisher, language, binding, maxPrice, q])
+  const { data: filterData } = useAsyncData(async () => {
+    const [a, p, c] = await Promise.all([getAuthors(), getPublishers(), getCategories()])
+    return { authors: a, publishers: p, categories: c }
+  }, [])
+  const authors = filterData?.authors || []
+  const publishers = filterData?.publishers || []
+  const categories = filterData?.categories || []
+  const { data: booksData, loading, error } = useAsyncData(async () => {
+    const o = JSON.parse(optsKey)
+    let opts = { sort: o.sort }
+    if (o.mode === 'category') opts.category = o.slug
+    if (o.mode === 'bestseller') opts.bestseller = true
+    if (o.mode === 'new') opts.isNew = true
+    if (o.mode === 'discounted') opts.discounted = true
+    if (o.cat) opts.category = o.cat
+    if (o.author) opts.authorId = o.author
+    if (o.publisher) opts.publisherId = o.publisher
+    if (o.language) opts.language = o.language
+    if (o.binding) opts.binding = o.binding
+    if (o.maxPrice < 1000) opts.maxPrice = o.maxPrice
+    let list = await bookService.list(opts)
+    if (o.q) {
+      const hits = await bookService.search(o.q)
+      const ids = new Set(hits.map((x) => x.id))
+      list = list.filter((b) => ids.has(b.id))
+    }
     return list
-  }, [mode, slug, sort, cat, author, publisher, language, binding, maxPrice, params])
+  }, [optsKey])
+  const books = booksData || []
   const title = mode === 'category' ? (categories.find((c) => c.slug === slug)?.nameBn || t('books'))
     : mode === 'bestseller' ? t('bestsellers') : mode === 'new' ? t('newArrivals') : mode === 'discounted' ? t('discounted') : t('books')
   const clearAll = () => { setCat(''); setAuthor(''); setPublisher(''); setLanguage(''); setBinding(''); setMaxPrice(1000) }
@@ -60,7 +72,8 @@ export default function Books({ mode = 'all' }) {
           <button onClick={() => setShowFilters(!showFilters)} className="md:hidden min-h-[44px] px-4 rounded-lg border border-[#D8C9B0] bg-white dark:bg-white/5 inline-flex items-center gap-2 text-sm font-medium"><SlidersHorizontal className="h-4 w-4" /> {t('filter')}</button>
         </div>
       </div>
-      <p className="text-sm text-muted mt-1">{books.length} {t('books')} পাওয়া গেছে</p>
+      <p className="text-sm text-muted mt-1">{loading ? 'লোড হচ্ছে…' : `${books.length} ${t('books')} পাওয়া গেছে`}</p>
+      {error && <div className="mt-4"><SectionError message={error} /></div>}
       <div className="mt-6 grid md:grid-cols-[240px_1fr] gap-6 items-start">
         <aside className={`${showFilters ? 'block' : 'hidden'} md:block rounded-xl border border-[#E9DFCE] dark:border-white/10 bg-white dark:bg-[#2A2521] p-4 space-y-5 md:sticky md:top-36`}>
           <div className="flex items-center justify-between"><h2 className="font-semibold">{t('filter')}</h2><button onClick={clearAll} className="text-sm text-primary font-medium min-h-[32px]">{t('clearFilters')}</button></div>
@@ -75,7 +88,9 @@ export default function Books({ mode = 'all' }) {
           </div>
         </aside>
         <div>
-          {books.length === 0 ? (
+          {loading ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4" aria-busy="true">{[1, 2, 3, 4, 5, 6, 7, 8].map((i) => <BookCardSkeleton key={i} />)}</div>
+          ) : books.length === 0 ? (
             <EmptyState icon={BookOpen} title={t('noBooks')} text={t('noBooksText')} action={<button onClick={clearAll} className="min-h-[44px] px-5 rounded-lg bg-primary text-white font-semibold">{t('clearFilters')}</button>} />
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">

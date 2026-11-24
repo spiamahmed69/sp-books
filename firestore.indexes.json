@@ -1,5 +1,6 @@
 {"indexes":[
 {"collectionGroup":"orders","fields":[{"fieldPath":"customerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"books","fields":[{"fieldPath":"isbn","order":"ASCENDING"},{"fieldPath":"approvalStatus","order":"ASCENDING"}],"queryScope":"COLLECTION"},
 {"collectionGroup":"orders","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
 {"collectionGroup":"books","fields":[{"fieldPath":"category","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
 {"collectionGroup":"books","fields":[{"fieldPath":"sellerId","order":"ASCENDING"},{"fieldPath":"approvalStatus","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},

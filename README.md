@@ -27,6 +27,32 @@ Firebase env var না থাকলে (বা `VITE_DEMO_MODE=true`) অ্য
 
 ডেমো কুপন: **SP10** (১০% ছাড়, ৳১,০০০+ অর্ডারে)।
 
+## Real Mode (Firebase — প্রজেক্ট `sp-books-c9e41`)
+
+- Firebase প্রজেক্ট: `sp-books-c9e41` (Spark, Singapore)। Email/Password
+  Auth চালু, Google সাইন-ইন বন্ধ, Firestore Production মোডে
+  (`firestore.rules` প্রকাশিত), Storage চালু নেই, Cloud Functions
+  ডিপ্লয় হয়নি।
+- `.env`-এ আসল `VITE_FIREBASE_*` মান + `VITE_DEMO_MODE=false` দিলে
+  (লোকাল `.env` ইতিমধ্যে তৈরি, gitignored) অ্যাপ আসল Firebase-এ চলে:
+  Auth, Firestore ক্যাটালগ/অর্ডার/রিভিউ, per-user কার্ট/উইশলিস্ট/ঠিকানা।
+- সিড (অ্যাডমিন ক্লেইম থাকা অ্যাডমিন দিয়ে):
+  `SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... node scripts/seed-firestore.mjs`
+  — ২৮ বই, ১৭ লেখক, ৭ প্রকাশক, ১০ ক্যাটাগরি, ৫ সেলার, কুপন, ব্যানার,
+  সেটিংস। Idempotent (আগে থেকে থাকা ডক স্কিপ করে)।
+- অ্যাডমিন বুটস্ট্র্যাপ: সিদ্ধান্ত হয়েছে (2026-11-24, অপশন A — একবারের
+  সার্ভিস-অ্যাকাউন্ট কী)। ব্যবহারকারী লাইভ সাইটে নিজে অ্যাডমিন অ্যাকাউন্ট
+  রেজিস্টার করবেন, প্যারেন্ট একবার কী বানিয়ে UID-তে admin ক্লেইম দেবে
+  এবং কীটি সাথে সাথে মুছে ফেলবে; তারপর সিড চলবে। Role শুধু কাস্টম
+  ক্লেইমে (`admin`/`moderator`); বিস্তারিত DEPLOYMENT.md-এ। ক্লেইম ছাড়া
+  নতুন ইউজার কাস্টমার হিসেবে সব ব্যবহার করতে পারে; `/admin` খুললে
+  "অ্যাডমিন সেটআপ বাকি" বার্তা দেখাবে।
+- সার্ভার-সাইড অপেক্ষমাণ (Blaze Functions ডিপ্লয় না হওয়া পর্যন্ত):
+  `sellerOrders` তৈরি, স্টক কমানো, `setAdminClaim`, পেমেন্টের সার্ভার-সাইড
+  যাচাই। রিয়েল মোডে চেকআউট parent অর্ডার + পেমেন্ট লেখে, sellerBreakdown
+  এমবেড করে; bKash/Nagad/কার্ড যাচাই এখনো সিমুলেটেড প্রোভাইডার
+  (`src/services/payment.js`) — আসল গেটওয়ে কলব্যাক নয়।
+
 ### এন্ড-টু-এন্ড চেকআউট পরীক্ষা
 
 1. `customer@sp.demo / customer123` দিয়ে লগইন করুন।
@@ -57,7 +83,10 @@ Firebase env var না থাকলে (বা `VITE_DEMO_MODE=true`) অ্য
 `src/lib/firestore.js` → `createOrder()` একই নিয়মে চলে: স্টক চেক
 (overselling প্রতিরোধ), idempotency key (ডুপ্লিকেট অর্ডার প্রতিরোধ),
 স্টক কমানো। প্রোডাকশনে একই লজিক `functions/index.js` → `createOrder`
-Firestore ট্রানজাকশনে চলে।
+Firestore ট্রানজাকশনে চলে — কিন্তু ফাংশনটি এখনো ডিপ্লয় হয়নি (Blaze
+লাগবে), তাই রিয়েল মোডে আপাতত ক্লায়েন্ট parent অর্ডার + পেমেন্ট লেখে
+এবং sellerBreakdown এমবেড করে; `sellerOrders` তৈরি ও স্টক কমানো
+ফাংশন ডিপ্লয়ের অপেক্ষায়।
 
 ## ডেলিভারি ও পেমেন্ট
 
@@ -108,12 +137,22 @@ Firestore ট্রানজাকশনে চলে।
 `src/lib/isbn.js` — ISBN-10/13 চেক-ডিজিট যাচাই। সেলার Add-Book ফর্মে
 ভুল ISBN ব্লক হয়; `saveBook()`-এ ডুপ্লিকেট ISBN গার্ড আছে।
 
-## ছবি আপলোড (ImgBB)
+## ছবি আপলোড (ImgBB — Firebase Storage ছাড়া)
 
 `ImageUpload` কম্পোনেন্ট: টাইপ + ৫ MB যাচাই, প্রোগ্রেস, এরর + রিট্রাই।
-ডেমো মোডে আপলোড সিমুলেট করে data URL সংরক্ষণ করে। Firebase মোডে
-`uploadImage` Cloud Function ImgBB-তে আপলোড করে — API কী শুধু
-`functions/.env`-এ (সার্ভার-সাইড), ফ্রন্টএন্ডে কখনো নয়।
+ডেমো মোডে আপলোড সিমুলেট করে data URL সংরক্ষণ করে। রিয়েল মোডে
+`api/upload.js` Vercel serverless ফাংশনে POST হয় — ImgBB-তে ফরওয়ার্ড
+করে, API কী শুধু সার্ভার-সাইড Vercel env var `IMGBB_API_KEY` থেকে আসে;
+কী কখনো কোডে, `.env`-এ বা কমিটেড ফাইলে লেখা হয় না।
+
+**⚠️ ImgBB অ্যাকাউন্ট অ্যাক্টিভেশন বাকি (2026-11-24):** নতুন কী
+(2026-11-24-এ দেওয়া, spsiamahmed1111@gmail.com অ্যাকাউন্টের) Vercel env
+var `IMGBB_API_KEY`-এ বসাতে হবে — পুরোনো কী আর ব্যবহার করবেন না। কিন্তু
+ImgBB অ্যাকাউন্ট এখনো অ্যাক্টিভেট হয়নি (অ্যাক্টিভেশন ইমেইলের লিংক
+বাকি), তাই কীটি এখন HTTP 400, code 103 ("You have been forbidden to
+use this website") দেয়। অ্যাকাউন্ট অ্যাক্টিভেট না হওয়া পর্যন্ত
+আপলোড ব্যর্থ হবে — UI-তে সৎ এরর + রিট্রাই দেখাবে। অ্যাক্টিভেশনের পর
+কীটি আবার পরীক্ষা করুন।
 
 ## SEO
 
@@ -124,17 +163,21 @@ lazy loading, React.lazy দিয়ে seller/admin ড্যাশবোর�
 
 ## Firebase সেটআপ (প্রোডাকশন)
 
-1. Firebase Console-এ প্রজেক্ট তৈরি করুন; Auth (Email/Google), Firestore,
-   Storage চালু করুন।
-2. `.env.example` কপি করে `.env` বানান, নিজের কীগুলো বসান। **কী কখনো
-   কমিট করবেন না।**
-3. `firebase deploy --only firestore:rules,storage` তারপর
-   `firebase deploy --only functions` (ImgBB-র জন্য `functions/.env`-এ
-   `IMGBB_API_KEY` দিন; Blaze প্ল্যান লাগতে পারে)।
-4. প্রথম অ্যাডমিন: Console থেকে ইউজার বানিয়ে Admin SDK দিয়ে
-   `setAdminClaim` কল করুন (বা `firebase functions:shell`)।
-5. হোস্টিং: `npm run build` → `firebase deploy --only hosting`
-   (বা Vercel-এ `dist/` ডিপ্লয় করুন)।
+1. Firebase প্রজেক্ট `sp-books-c9e41` ইতিমধ্যে তৈরি; Auth
+   (Email/Password), Firestore চালু, Storage বন্ধ, Functions ডিপ্লয় হয়নি।
+2. `.env.example` কপি করে `.env` বানান, নিজের কীগুলো বসান,
+   `VITE_DEMO_MODE=false` দিন। **কী কখনো কমিট করবেন না।**
+3. `firebase deploy --only firestore:rules` (rules ইতিমধ্যে প্রকাশিত)।
+   Functions ডিপ্লয় করতে Blaze লাগবে — এখনো হয়নি, `functions/index.js`
+   শুধু লেখা আছে।
+4. প্রথম অ্যাডমিন (সিদ্ধান্ত: অপশন A, DEPLOYMENT.md দেখুন): ব্যবহারকারী
+   লাইভ সাইটে নিজে রেজিস্টার করবেন; প্যারেন্ট একবার সার্ভিস-অ্যাকাউন্ট
+   কী বানিয়ে UID-তে `admin` ক্লেইম দেবে এবং কীটি সাথে সাথে মুছে ফেলবে।
+5. তারপর সিড: `SEED_ADMIN_EMAIL=... SEED_ADMIN_PASSWORD=... node
+   scripts/seed-firestore.mjs`।
+6. হোস্টিং: Vercel-এ `dist/` ডিপ্লয় করুন (env var-সহ, DEPLOYMENT.md
+   দেখুন); ImgBB কী শুধু Vercel env var `IMGBB_API_KEY` হিসেবে — কখনো
+   কোডে বা `.env`-এ নয়।
 
 ## ডিজাইন
 

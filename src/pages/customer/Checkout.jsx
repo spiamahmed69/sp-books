@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { CheckCircle2, Truck, CreditCard, Banknote, Wallet } from 'lucide-react'
 import SEO from '../../components/SEO'
@@ -7,10 +7,12 @@ import { useCart } from '../../context/CartContext'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { useToast } from '../../context/ToastContext'
+import { useAsyncData } from '../../hooks/useAsyncData'
 import { bookService } from '../../services/bookService'
 import { createOrder, getCoupons, getSettings } from '../../lib/firestore'
+import { isDemoMode } from '../../lib/firebase'
 import { DISTRICTS } from '../../data/demo'
-import { formatTaka } from '../../lib/format'
+import { formatTaka, idempotencyKey } from '../../lib/format'
 import { initiatePayment, validatePaymentInput, PAYMENT_METHODS } from '../../services/payment'
 export default function Checkout() {
   const { items, clear } = useCart()
@@ -18,7 +20,21 @@ export default function Checkout() {
   const { t } = useLanguage()
   const toast = useToast()
   const navigate = useNavigate()
-  const settings = getSettings()
+  // One idempotency key per checkout session: a retry or double-submit can
+  // never create a second order with the same key.
+  const orderKeyRef = useRef(null)
+  if (!orderKeyRef.current) orderKeyRef.current = idempotencyKey()
+  const itemsKey = JSON.stringify(items)
+  const { data } = useAsyncData(async () => {
+    const list = JSON.parse(itemsKey)
+    const [settings, books] = await Promise.all([
+      getSettings(),
+      Promise.all(list.map((i) => bookService.bySlug(i.bookId))),
+    ])
+    return { settings, detailed: list.map((i, idx) => ({ ...i, book: books[idx] })).filter((i) => i.book) }
+  }, [itemsKey])
+  const settings = data?.settings || { freeShippingAbove: 1500, shippingDhaka: 60, shippingOutsideDhaka: 120 }
+  const detailed = data?.detailed || []
   const [form, setForm] = useState({ name: user?.name || '', phone: '', address: '', district: 'Dhaka', upazila: '' })
   const [method, setMethod] = useState('cod')
   const [txnId, setTxnId] = useState('')
@@ -27,20 +43,21 @@ export default function Checkout() {
   const [coupon, setCoupon] = useState(null)
   const [placing, setPlacing] = useState(false)
   const [done, setDone] = useState(null)
-  const detailed = useMemo(() => items.map((i) => ({ ...i, book: bookService.bySlug(i.bookId) })).filter((i) => i.book), [items])
   const subtotal = detailed.reduce((s, i) => s + i.book.price * i.qty, 0)
   const discount = coupon ? Math.round(subtotal * (coupon.discountPercent / 100)) : 0
   const isDhaka = form.district === 'Dhaka'
   const shipping = subtotal === 0 ? 0 : subtotal - discount >= settings.freeShippingAbove ? 0 : (isDhaka ? settings.shippingDhaka : settings.shippingOutsideDhaka)
   const total = subtotal - discount + shipping
-  const applyCoupon = () => {
-    const found = getCoupons().find((c) => c.code.toUpperCase() === couponCode.trim().toUpperCase() && c.active)
+  const applyCoupon = async () => {
+    const coupons = await getCoupons()
+    const found = coupons.find((c) => c.code.toUpperCase() === couponCode.trim().toUpperCase() && c.active)
     if (!found || subtotal < found.minOrder) { toast.error(t('invalidCoupon')); setCoupon(null); return }
     setCoupon(found); toast.success(t('couponApplied'))
   }
   const placeOrder = async (e) => {
     e.preventDefault()
     if (detailed.length === 0) { toast.error(t('emptyCart')); return }
+    if (!isDemoMode && !user) { toast.error('অর্ডার করতে লগইন করুন। / Please sign in to place an order.'); navigate('/login', { state: { from: '/checkout' } }); return }
     if (!form.name.trim() || !form.phone.trim() || !form.address.trim() || !form.upazila.trim()) { toast.error('ঠিকানার সব ঘর পূরণ করুন। / Please fill in all address fields.'); return }
     const payErr = validatePaymentInput(method, { txnId, cardNumber: card.number, expiry: card.expiry, cvc: card.cvc })
     if (payErr) { toast.error(payErr); return }
@@ -48,12 +65,13 @@ export default function Checkout() {
     try {
       const pay = await initiatePayment({ method, amount: total, txnId, cardLast4: method === 'card' ? card.number.replace(/\D/g, '').slice(-4) : '' })
       if (!pay.ok) { toast.error(pay.message); return }
-      const { parent } = createOrder({
+      const { parent } = await createOrder({
         customer: user,
         items: detailed,
         address: { ...form, division: isDhaka ? 'dhaka' : 'outside' },
         payment: { method, txnId, cardLast4: method === 'card' ? card.number.replace(/\D/g, '').slice(-4) : '' },
         coupon,
+        idempotencyKey: orderKeyRef.current,
       })
       clear()
       setDone(parent)
@@ -86,6 +104,9 @@ export default function Checkout() {
     <div className="mx-auto max-w-7xl px-4 py-6">
       <SEO title={t('checkout')} description="Checkout — SP Books" />
       <h1 className="font-display text-3xl font-bold">{t('checkout')}</h1>
+      {!isDemoMode && !user && (
+        <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">অর্ডার করতে প্রথমে <button onClick={() => navigate('/login', { state: { from: '/checkout' } })} className="font-semibold underline">লগইন</button> করুন।</p>
+      )}
       {detailed.length === 0 ? (
         <p className="text-muted mt-6">কার্ট খালি। <button onClick={() => navigate('/books')} className="text-primary font-medium">বই দেখুন</button></p>
       ) : (

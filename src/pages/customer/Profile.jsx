@@ -5,15 +5,23 @@ import SEO from '../../components/SEO'
 import { useAuth } from '../../context/AuthContext'
 import { useLanguage } from '../../context/LanguageContext'
 import { useToast } from '../../context/ToastContext'
-import { getOrders } from '../../lib/firestore'
+import { useAsyncData } from '../../hooks/useAsyncData'
+import { orderService } from '../../services/orderService'
 export default function Profile() {
   const { user, logout, updateProfile } = useAuth()
   const { t } = useLanguage()
   const toast = useToast()
   const [name, setName] = useState(user?.name || '')
   const [phone, setPhone] = useState(user?.phone || '')
-  const myOrders = user ? getOrders().filter((o) => o.customerId === user.id) : []
-  const save = (e) => { e.preventDefault(); updateProfile({ name, phone }); toast.success('প্রোফাইল সংরক্ষণ হয়েছে।') }
+  const { data } = useAsyncData(() => (user ? orderService.listForCustomer(user.id) : Promise.resolve([])), [user?.id])
+  const myOrders = data || []
+  const save = async (e) => {
+    e.preventDefault()
+    try {
+      await updateProfile({ name, phone })
+      toast.success('প্রোফাইল সংরক্ষণ হয়েছে।')
+    } catch (err) { toast.error(err.message || 'সংরক্ষণ হয়নি।') }
+  }
   return (
     <div className="mx-auto max-w-3xl px-4 py-6">
       <SEO title={t('profile')} description="Your profile — SP Books" />
