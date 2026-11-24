@@ -1,0 +1,36 @@
+@import url('https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700;800&display=swap');
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+@theme {
+  --color-primary: #6B422E;
+  --color-primary-dark: #4E2E1F;
+  --color-primary-light: #EFE3D3;
+  --color-secondary: #C49A6C;
+  --color-secondary-light: #F3E7D7;
+  --color-bg: #F7F3EC;
+  --color-surface: #FFFFFF;
+  --color-ink: #282522;
+  --color-muted: #6F6A63;
+  --color-success: #15803D;
+  --color-danger: #B91C1C;
+  --color-gold: #B08D3E;
+  --font-bn: "Hind Siliguri", "Inter", system-ui, sans-serif;
+  --font-en: "Inter", "Hind Siliguri", system-ui, sans-serif;
+  --font-display: "Playfair Display", "Hind Siliguri", serif;
+}
+html { scroll-behavior: smooth; }
+body { font-family: var(--font-bn); background-color: #F7F3EC; color: #282522; -webkit-font-smoothing: antialiased; }
+.dark body { background-color: #1C1917; color: #F5F0E8; }
+a, button { -webkit-tap-highlight-color: transparent; }
+:focus-visible { outline: 3px solid #6B422E; outline-offset: 2px; border-radius: 4px; }
+.dark :focus-visible { outline-color: #C49A6C; }
+input, select, textarea { font-size: 16px; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { scrollbar-width: none; }
+@keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.fade-up { animation: fadeUp .3s ease both; }
+@keyframes shimmer { 0% { background-position: -400px 0; } 100% { background-position: 400px 0; } }
+.skeleton { background: linear-gradient(90deg, #efe9dd 25%, #e2d9c8 50%, #efe9dd 75%); background-size: 800px 100%; animation: shimmer 1.2s infinite linear; }
+@keyframes slideIn { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: translateX(0); } }
+.slide-in { animation: slideIn .35s ease both; }
+@media (prefers-reduced-motion: reduce) { .fade-up, .slide-in, .skeleton { animation: none; } html { scroll-behavior: auto; } }

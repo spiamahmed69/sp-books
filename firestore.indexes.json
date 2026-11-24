@@ -1,0 +1,10 @@
+{"indexes":[
+{"collectionGroup":"orders","fields":[{"fieldPath":"customerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"orders","fields":[{"fieldPath":"status","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"books","fields":[{"fieldPath":"category","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"books","fields":[{"fieldPath":"sellerId","order":"ASCENDING"},{"fieldPath":"approvalStatus","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"books","fields":[{"fieldPath":"approvalStatus","order":"ASCENDING"},{"fieldPath":"sold","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"sellerOrders","fields":[{"fieldPath":"sellerId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"reviews","fields":[{"fieldPath":"bookId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"},
+{"collectionGroup":"payments","fields":[{"fieldPath":"orderId","order":"ASCENDING"},{"fieldPath":"createdAt","order":"DESCENDING"}],"queryScope":"COLLECTION"}
+]}
