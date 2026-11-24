@@ -25,7 +25,7 @@ export default function Orders() {
           {orders.map((o) => (
             <Link key={o.id} to={`/track/${o.id}`} className="block rounded-xl border border-[#E9DFCE] dark:border-white/10 bg-white dark:bg-[#2A2521] p-4 hover:shadow">
               <div className="flex flex-wrap justify-between gap-2">
-                <span className="font-semibold">{o.id}</span>
+                <span className="font-semibold break-all">{o.id}</span>
                 <span className="rounded-full bg-primary-light dark:bg-white/10 text-primary dark:text-secondary text-xs font-bold px-3 py-1">{t(o.status) || o.status}</span>
               </div>
               <p className="text-sm text-muted mt-1">{timeAgo(o.createdAt)} · {o.items?.length || 0}টি বই · {o.address?.district}</p>

@@ -18,8 +18,8 @@
   --font-en: "Inter", "Hind Siliguri", system-ui, sans-serif;
   --font-display: "Playfair Display", "Hind Siliguri", serif;
 }
-html { scroll-behavior: smooth; }
-body { font-family: var(--font-bn); background-color: #F7F3EC; color: #282522; -webkit-font-smoothing: antialiased; }
+html { scroll-behavior: smooth; overflow-x: clip; }
+body { font-family: var(--font-bn); background-color: #F7F3EC; color: #282522; -webkit-font-smoothing: antialiased; overflow-x: clip; }
 .dark body { background-color: #1C1917; color: #F5F0E8; }
 a, button { -webkit-tap-highlight-color: transparent; }
 :focus-visible { outline: 3px solid #6B422E; outline-offset: 2px; border-radius: 4px; }

@@ -88,7 +88,7 @@ export default function Checkout() {
         <h1 className="font-display text-3xl font-bold mt-4">{t('orderPlaced')}</h1>
         <p className="text-muted mt-2">{t('thankYou')}</p>
         <p className="mt-4 rounded-xl border bg-white dark:bg-white/5 p-4 text-left text-sm space-y-1">
-          <span className="block"><strong>{t('orderId')}:</strong> {done.id}</span>
+          <span className="block break-all"><strong>{t('orderId')}:</strong> {done.id}</span>
           <span className="block"><strong>{t('total')}:</strong> {formatTaka(done.total)}</span>
           <span className="block"><strong>{t('paymentMethod')}:</strong> {PAYMENT_METHODS.find((m) => m.id === done.paymentMethod)?.labelBn}</span>
           <span className="block"><strong>{t('deliveryAddress')}:</strong> {done.address.address}, {done.address.upazila}, {done.address.district}</span>

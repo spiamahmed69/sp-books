@@ -44,7 +44,7 @@ export default function Navbar() {
         {t('freeDelivery')} · SP10 {t('couponApplied').replace('!', '')} — 10% ছাড় (৳১,০০০+ অর্ডারে)
       </div>
       <div className="mx-auto max-w-7xl px-4">
-        <div className="flex items-center gap-3 py-3">
+        <div className="flex items-center gap-2 sm:gap-3 py-3">
           <button className="md:hidden min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg hover:bg-bg" onClick={() => setOpen(!open)} aria-label="Menu" aria-expanded={open}>
             {open ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
           </button>
@@ -52,7 +52,7 @@ export default function Navbar() {
             <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white"><BookOpen className="h-6 w-6" /></span>
             <span className="leading-none">
               <span className="block font-display font-bold text-xl text-primary dark:text-secondary">SP Books</span>
-              <span className="block text-[11px] text-muted">এসপি বুকস · বইয়ের দোকান</span>
+              <span className="block text-[11px] text-muted hidden sm:block">এসপি বুকস · বইয়ের দোকান</span>
             </span>
           </Link>
           <form onSubmit={onSearch} className="relative hidden md:flex flex-1 max-w-xl mx-auto" role="search">
@@ -71,7 +71,7 @@ export default function Navbar() {
           </form>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <button onClick={() => setLang(lang === 'bn' ? 'en' : 'bn')} className="min-h-[44px] px-2 sm:px-3 rounded-lg text-sm font-semibold hover:bg-bg dark:hover:bg-white/10" aria-label="Switch language">{lang === 'bn' ? 'EN' : 'বাং'}</button>
-            <button onClick={() => setDark(!dark)} className="min-h-[44px] min-w-[44px] rounded-lg flex items-center justify-center hover:bg-bg dark:hover:bg-white/10" aria-label={dark ? 'Light mode' : 'Dark mode'}>{dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
+            <button onClick={() => setDark(!dark)} className="min-h-[44px] min-w-[44px] rounded-lg hidden sm:flex items-center justify-center hover:bg-bg dark:hover:bg-white/10" aria-label={dark ? 'Light mode' : 'Dark mode'}>{dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}</button>
             <Link to="/wishlist" className="relative min-h-[44px] min-w-[44px] rounded-lg hidden sm:flex items-center justify-center hover:bg-bg dark:hover:bg-white/10" aria-label={`${t('wishlist')} (${ids.length})`}>
               <Heart className="h-5 w-5" />
               {ids.length > 0 && <span className="absolute top-0.5 right-0.5 h-5 min-w-5 px-1 rounded-full bg-red-600 text-white text-[11px] font-bold flex items-center justify-center">{ids.length}</span>}
@@ -99,7 +99,7 @@ export default function Navbar() {
                 )}
               </div>
             ) : (
-              <Link to="/login" className="min-h-[44px] px-3 sm:px-4 rounded-full bg-primary text-white text-sm font-semibold flex items-center gap-1.5 hover:bg-primary-dark"><User className="h-4 w-4" /> {t('login')}</Link>
+              <Link to="/login" className="min-h-[44px] px-3 sm:px-4 rounded-full bg-primary text-white text-sm font-semibold flex items-center gap-1.5 hover:bg-primary-dark"><User className="h-4 w-4" /> <span className="hidden sm:inline">{t('login')}</span></Link>
             )}
           </div>
         </div>
@@ -127,6 +127,7 @@ export default function Navbar() {
             <Link to="/bestsellers" onClick={() => setOpen(false)} className="px-3 py-3 rounded-lg hover:bg-bg font-medium">{t('bestsellers')}</Link>
             <Link to="/discounted" onClick={() => setOpen(false)} className="px-3 py-3 rounded-lg hover:bg-bg font-medium">{t('discounted')}</Link>
             <Link to="/seller/register" onClick={() => setOpen(false)} className="px-3 py-3 rounded-lg hover:bg-bg font-medium">{t('becomeSeller')}</Link>
+            <button onClick={() => setDark(!dark)} className="px-3 py-3 rounded-lg hover:bg-bg font-medium text-left flex items-center gap-2">{dark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />} {dark ? 'Light mode' : 'Dark mode'}</button>
           </nav>
         )}
       </div>

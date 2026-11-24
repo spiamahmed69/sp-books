@@ -169,9 +169,9 @@ export default function SellerDashboard() {
             <button type="submit" className="sm:col-span-3 min-h-[48px] rounded-full bg-primary text-white font-bold">কুপন তৈরি করুন</button>
           </form>
           {coupons.map((c) => (
-            <div key={c.code} className="flex justify-between items-center rounded-xl border bg-white dark:bg-[#2A2521] p-4">
-              <span><strong>{c.code}</strong> — {c.discountPercent}% ছাড়, ন্যূনতম {formatTaka(c.minOrder)}</span>
-              <button onClick={() => run(async () => { await deleteCoupon(c.code); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3">{t('delete')}</button>
+            <div key={c.code} className="flex flex-wrap justify-between items-center gap-2 rounded-xl border bg-white dark:bg-[#2A2521] p-4">
+              <span className="min-w-0 break-all"><strong>{c.code}</strong> — {c.discountPercent}% ছাড়, ন্যূনতম {formatTaka(c.minOrder)}</span>
+              <button onClick={() => run(async () => { await deleteCoupon(c.code); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3 shrink-0">{t('delete')}</button>
             </div>
           ))}
         </div>

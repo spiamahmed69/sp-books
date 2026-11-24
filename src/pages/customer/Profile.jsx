@@ -26,10 +26,10 @@ export default function Profile() {
     <div className="mx-auto max-w-3xl px-4 py-6">
       <SEO title={t('profile')} description="Your profile — SP Books" />
       <div className="flex items-center gap-4">
-        <span className="h-20 w-20 rounded-full bg-primary text-white flex items-center justify-center text-3xl font-bold">{user?.name?.[0] || 'U'}</span>
-        <div>
-          <h1 className="font-display text-3xl font-bold">{user?.name}</h1>
-          <p className="text-muted">{user?.email} · {t(user?.role || 'customer')}</p>
+        <span className="h-20 w-20 rounded-full bg-primary text-white flex items-center justify-center text-3xl font-bold shrink-0">{user?.name?.[0] || 'U'}</span>
+        <div className="min-w-0">
+          <h1 className="font-display text-3xl font-bold break-words">{user?.name}</h1>
+          <p className="text-muted break-all">{user?.email} · {t(user?.role || 'customer')}</p>
           <p className="text-sm text-muted mt-1">{myOrders.length}টি অর্ডার করেছেন</p>
         </div>
       </div>

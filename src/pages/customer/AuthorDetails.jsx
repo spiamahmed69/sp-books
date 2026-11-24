@@ -28,8 +28,8 @@ export default function AuthorDetails() {
       <SEO title={author.nameBn} description={author.bioBn} />
       <div className="flex items-start gap-4">
         <span className="h-20 w-20 rounded-full bg-primary-light dark:bg-white/10 text-primary dark:text-secondary flex items-center justify-center font-display text-3xl font-bold shrink-0">{author.nameBn?.[0]}</span>
-        <div>
-          <h1 className="font-display text-3xl font-bold">{author.nameBn}</h1>
+        <div className="min-w-0">
+          <h1 className="font-display text-3xl font-bold break-words">{author.nameBn}</h1>
           <p className="text-muted">{author.name}</p>
           <p className="mt-2 max-w-2xl leading-relaxed text-sm">{author.bioBn}</p>
           <p className="text-sm text-primary font-medium mt-2">{books.length} টি বই</p>

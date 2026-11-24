@@ -44,7 +44,7 @@ export default function OrderTracking() {
       {order && (
         <div className="mt-6 rounded-2xl border border-[#E9DFCE] dark:border-white/10 bg-white dark:bg-[#2A2521] p-6">
           <div className="flex flex-wrap justify-between gap-2">
-            <div><p className="font-semibold">{order.id}</p><p className="text-sm text-muted">{order.customerName} · {order.address?.district}, {order.address?.upazila}</p></div>
+            <div><p className="font-semibold break-all">{order.id}</p><p className="text-sm text-muted">{order.customerName} · {order.address?.district}, {order.address?.upazila}</p></div>
             <span className="rounded-full bg-primary-light dark:bg-white/10 text-primary dark:text-secondary text-xs font-bold px-3 py-1 h-fit">{t(order.status) || order.status}</span>
           </div>
           {order.status === 'cancelled' ? (

@@ -139,7 +139,7 @@ export default function AdminDashboard() {
       {tab === 'customers' && (
         <div className="mt-6 space-y-3">
           {users.map((u) => (
-            <div key={u.id} className="flex justify-between items-center rounded-xl border bg-white dark:bg-[#2A2521] p-4"><span><strong>{u.name}</strong> · {u.email} · {t(u.role) || u.role}</span><span className="text-sm text-muted">{u.id}</span></div>
+            <div key={u.id} className="flex flex-wrap justify-between items-center gap-2 rounded-xl border bg-white dark:bg-[#2A2521] p-4"><span className="min-w-0 break-all"><strong>{u.name}</strong> · {u.email} · {t(u.role) || u.role}</span><span className="text-sm text-muted break-all">{u.id}</span></div>
           ))}
         </div>
       )}
@@ -148,7 +148,7 @@ export default function AdminDashboard() {
           {payments.length === 0 && <p className="text-muted">এখনো কোনো পেমেন্ট রেকর্ড নেই।</p>}
           {payments.map((p) => (
             <div key={p.id} className="flex flex-wrap justify-between gap-2 rounded-xl border bg-white dark:bg-[#2A2521] p-4">
-              <span><strong>{p.orderId}</strong> · {p.method} · {formatTaka(p.amount)} · {p.status} {p.txnId && `· TrxID ${p.txnId}`}</span>
+              <span className="min-w-0 break-all"><strong>{p.orderId}</strong> · {p.method} · {formatTaka(p.amount)} · {p.status} {p.txnId && `· TrxID ${p.txnId}`}</span>
               {p.status === 'awaiting_verification' && <button onClick={() => { act(`Payment verified: ${p.orderId}`, p.orderId); toast.success('পেমেন্ট যাচাই হয়েছে।') }} className="min-h-[40px] px-3 rounded-lg bg-green-700 text-white text-sm font-semibold">যাচাই করুন</button>}
             </div>
           ))}
@@ -159,8 +159,8 @@ export default function AdminDashboard() {
           <div className="rounded-xl border bg-white dark:bg-[#2A2521] p-5"><p className="text-sm text-muted">মোট কমিশন (১০%)</p><p className="text-2xl font-bold text-primary">{formatTaka(commissionTotal)}</p></div>
           {sellerOrders.map((o) => (
             <div key={o.id} className="flex flex-wrap justify-between gap-2 rounded-xl border bg-white dark:bg-[#2A2521] p-4">
-              <span>{o.parentOrderId} · সেলার {o.sellerId}</span>
-              <span>বিক্রয় {formatTaka(o.subtotal)} · কমিশন {formatTaka(o.commission)} · সেলার আয় {formatTaka(o.sellerEarnings)}</span>
+              <span className="min-w-0 break-all">{o.parentOrderId} · সেলার {o.sellerId}</span>
+              <span className="min-w-0 break-all">বিক্রয় {formatTaka(o.subtotal)} · কমিশন {formatTaka(o.commission)} · সেলার আয় {formatTaka(o.sellerEarnings)}</span>
             </div>
           ))}
         </div>
@@ -174,7 +174,7 @@ export default function AdminDashboard() {
             <button type="submit" className="sm:col-span-3 min-h-[48px] rounded-full bg-primary text-white font-bold">কুপন তৈরি করুন</button>
           </form>
           {coupons.map((c) => (
-            <div key={c.code} className="flex justify-between items-center rounded-xl border bg-white dark:bg-[#2A2521] p-4"><span><strong>{c.code}</strong> — {c.discountPercent}% ছাড়, ন্যূনতম {formatTaka(c.minOrder)}</span><button onClick={() => run(async () => { await deleteCoupon(c.code); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3">{t('delete')}</button></div>
+            <div key={c.code} className="flex flex-wrap justify-between items-center gap-2 rounded-xl border bg-white dark:bg-[#2A2521] p-4"><span className="min-w-0 break-all"><strong>{c.code}</strong> — {c.discountPercent}% ছাড়, ন্যূনতম {formatTaka(c.minOrder)}</span><button onClick={() => run(async () => { await deleteCoupon(c.code); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3 shrink-0">{t('delete')}</button></div>
           ))}
         </div>
       )}
@@ -188,7 +188,7 @@ export default function AdminDashboard() {
             <button type="submit" className="w-full min-h-[48px] rounded-full bg-primary text-white font-bold">ব্যানার যোগ করুন</button>
           </form>
           {banners.map((b) => (
-            <div key={b.id} className="flex justify-between items-center rounded-xl border bg-white dark:bg-[#2A2521] p-4"><span><strong>{b.title}</strong> — {b.link}</span><button onClick={() => run(async () => { await deleteBanner(b.id); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3">{t('delete')}</button></div>
+            <div key={b.id} className="flex flex-wrap justify-between items-center gap-2 rounded-xl border bg-white dark:bg-[#2A2521] p-4"><span className="min-w-0 break-all"><strong>{b.title}</strong> — {b.link}</span><button onClick={() => run(async () => { await deleteBanner(b.id); setRefresh((r) => r + 1) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3 shrink-0">{t('delete')}</button></div>
           ))}
         </div>
       )}
@@ -219,8 +219,8 @@ export default function AdminDashboard() {
           )}
           {moderators.map((m) => (
             <div key={m.id} className="rounded-xl border bg-white dark:bg-[#2A2521] p-4">
-              <div className="flex justify-between items-center"><span><strong>{m.name}</strong> · {m.email}</span>
-                {isAdmin && <button onClick={() => run(async () => { await deleteModerator(m.id); act(`Moderator removed: ${m.email}`, m.email) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3">{t('delete')}</button>}
+              <div className="flex flex-wrap justify-between items-center gap-2"><span className="min-w-0 break-all"><strong>{m.name}</strong> · {m.email}</span>
+                {isAdmin && <button onClick={() => run(async () => { await deleteModerator(m.id); act(`Moderator removed: ${m.email}`, m.email) })} className="text-red-700 text-sm font-medium min-h-[40px] px-3 shrink-0">{t('delete')}</button>}
               </div>
               <div className="flex flex-wrap gap-3 mt-2 text-xs">
                 {['canApproveBooks', 'canManageOrders', 'canManageCategories', 'canManageBanners', 'canManageCoupons'].map((perm) => (

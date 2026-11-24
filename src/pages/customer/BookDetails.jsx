@@ -140,7 +140,7 @@ export default function BookDetails() {
           </div>
           <dl className="mt-6 rounded-xl border divide-y text-sm">
             {[['ISBN', book.isbn], ['সংস্করণ', book.edition], ['ভাষা', book.language], ['পৃষ্ঠা', book.pages], ['বাঁধাই', book.binding], ['প্রকাশের তারিখ', book.publicationDate]].map(([k, v]) => (
-              <div key={k} className="grid grid-cols-[140px_1fr] px-4 py-2.5"><dt className="text-muted">{k}</dt><dd className="font-medium">{v}</dd></div>
+              <div key={k} className="grid grid-cols-1 gap-0.5 px-4 py-2.5 sm:grid-cols-[140px_1fr] sm:gap-0"><dt className="text-muted">{k}</dt><dd className="font-medium break-words">{v}</dd></div>
             ))}
           </dl>
         </div>
