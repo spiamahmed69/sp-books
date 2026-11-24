@@ -21,6 +21,7 @@ service cloud.firestore {
     match /books/{bookId} {
       allow read: if resource.data.approvalStatus == 'approved';
       allow read: if isAdminOrModerator() || (isSignedIn() && resource.data.sellerId != null && isSellerDoc(resource.data.sellerId));
+      allow create: if isAdminOrModerator();
       allow create: if isSignedIn() && request.resource.data.sellerId != null && isSellerDoc(request.resource.data.sellerId)
         && request.resource.data.approvalStatus == 'pending';
       allow update: if isAdminOrModerator()
@@ -48,6 +49,7 @@ service cloud.firestore {
     }
     match /sellers/{sellerId} {
       allow read: if isSignedIn();
+      allow create: if isAdminOrModerator();
       allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
       allow update: if isAdmin() || isOwner(resource.data.ownerId);
       allow delete: if isAdmin();
