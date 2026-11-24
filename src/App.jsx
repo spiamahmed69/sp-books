@@ -1,5 +1,5 @@
-import { Suspense, lazy } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Suspense, lazy, useEffect } from 'react'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { LanguageProvider } from './context/LanguageContext'
 import { ToastProvider } from './context/ToastContext'
 import { AuthProvider } from './context/AuthContext'
@@ -49,6 +49,16 @@ function Loading() {
   )
 }
 
+// Every route change starts the new page at the very top (instant, no scroll
+// animation). Hash-only changes are left alone so anchor links still work.
+function ScrollToTop() {
+  const { pathname, hash } = useLocation()
+  useEffect(() => {
+    if (!hash) window.scrollTo({ top: 0, left: 0, behavior: 'instant' })
+  }, [pathname, hash])
+  return null
+}
+
 export default function App() {
   return (
     <LanguageProvider>
@@ -57,6 +67,7 @@ export default function App() {
           <CartProvider>
             <WishlistProvider>
               <BrowserRouter>
+                <ScrollToTop />
                 <div className="flex min-h-screen flex-col pb-16 md:pb-0 bg-bg text-ink dark:bg-[#1C1917] dark:text-[#F5F0E8]">
                   <Navbar />
                   <main className="flex-1">
